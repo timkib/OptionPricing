@@ -14,7 +14,7 @@ class OptionPricing:
         self.T = T
         self.K = K
         self.M = M
-        self.H = None
+        self.H = None # Barrier
         self.d_1 = None
         self.d_2 = None
         self.d_calculator()
