@@ -2,9 +2,11 @@
 import numpy as np
 from scipy.stats import norm
 from numba import jit
+from numba import int32, float32    # import the types
+from numba.experimental import jitclass
 
 
-class OptionPricing:
+class BlackScholesMarket:
     def __init__(self, t, S0, S_t, r, sigma, T, K, M):
         self.t = t
         self.S0 = S0
@@ -14,7 +16,7 @@ class OptionPricing:
         self.T = T
         self.K = K
         self.M = M
-        self.H = None # Barrier
+        self.H = None
         self.d_1 = None
         self.d_2 = None
         self.d_calculator()
@@ -145,4 +147,56 @@ class OptionPricing:
             S_matrix[i] = self.K * np.exp(x_i)
             v_0[i] = self.K * price_matrix[i, -1] * np.exp(-x_i/2*(q-1)-0.5*self.sigma**2*self.T*(q+0.25*(q-1)**2))
         return S_matrix, v_0 
-    
+
+
+class HestonModel:
+    def __init__(self, t, S0, S_t, r, sigma_tilde, T, K, M, lambda_parameter, m, kappa, gamma0):
+        self.t = t
+        self.S0 = S0
+        self.S_t = S_t
+        self.r = r
+        self.sigma_tilde = sigma_tilde
+        self.T = T
+        self.K = K
+        self.M = M
+        self.H = None
+        self.lambda_parameter = lambda_parameter
+        self.m = m
+        self.kappa = kappa
+        self.gamma0 = gamma0
+
+    #jit(nopython=True) 
+    def Heston_EuCall_MC_Euler (self, exercise_type):
+        """Heston model calculation vanilla options with Monte-Carlo method and Euler method for the SDE."""
+        call_prices = np.zeros(shape=(self.M))
+        
+        for z in range(self.M):
+            # Initialise
+            S = np.zeros(shape=(self.m, ))
+            Gamma = np.zeros(shape=(self.m, ))
+            Gamma[0] = self.gamma0
+            delta_t = self.T /self.m
+            S[0] = self.S0
+            for i in range(1, self.m , 1):
+                # volatility modeling
+                delta_W_tilde = np.random.standard_normal() * np.sqrt(delta_t)
+                # avoid negative values for Gamma: take maximum of Gamma[i - 1] and 0
+                Gamma[i] = np.maximum(Gamma[i - 1], 0) + (self.kappa - self.lambda_parameter * np.maximum(Gamma[i - 1], 0) ) * delta_t + np.sqrt(np.maximum(Gamma[i - 1], 0)) * self.sigma_tilde * delta_W_tilde
+                
+                # stock price modeling
+                delta_W_Q = np.random.standard_normal() * np.sqrt(delta_t)
+                # avoid negative values for Gamma: take maximum of Gamma[i - 1] and 0
+                S[i] = S[i - 1]  + S[i - 1] * self.r * delta_t + S[i - 1] * np.sqrt(np.maximum(Gamma[i], 0)) * delta_W_Q
+            
+            # calculate Payout at t = T
+            payout = np.maximum(S[-1] - self.K, 0) if exercise_type == "Call" else np.maximum(self.K - S[-1], 0)
+            call_prices[z] = payout
+            
+        # monte carlo estimate + discounting
+        V0 = 1 / self.M * np.sum(call_prices) * np.exp(-self.r * self.T)
+        
+        # # calculate confidence interval
+        # simulated_mean_price = np.mean(call_prices)
+        # simulated_std = np.std(call_prices)
+        # confidence_interval = [simulated_mean_price - 1.96 * simulated_std / np.sqrt(M), simulated_mean_price + 1.96 * simulated_std / np.sqrt(M)] 
+        return V0
