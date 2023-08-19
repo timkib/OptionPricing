@@ -4,6 +4,8 @@ from scipy.stats import norm
 from numba import jit
 from numba import int32, float32    # import the types
 from numba.experimental import jitclass
+from utils import characteristic_function_BS, f_tilde, characteristic_function_Heston
+import scipy.integrate as integrate
 
 
 class BlackScholesMarket:
@@ -146,10 +148,24 @@ class BlackScholesMarket:
             x_i = final_stock_prices[i]
             S_matrix[i] = self.K * np.exp(x_i)
             v_0[i] = self.K * price_matrix[i, -1] * np.exp(-x_i/2*(q-1)-0.5*self.sigma**2*self.T*(q+0.25*(q-1)**2))
-        return S_matrix, v_0 
+        return S_matrix, v_0
+
+    def integrand_Call(self, u):
+        R = 1.2
+        return np.exp(-self.r * self.T) / np.pi * np.real(f_tilde(self.K, R + 1j * u) * characteristic_function_BS(u - 1j * R, self.S0, self.r, self.sigma, self.T))
+    
+    def integrand_Put(self, u):
+        R = -1.1
+        return np.exp(-self.r * self.T) / np.pi * np.real(f_tilde(self.K, R + 1j * u) * characteristic_function_BS(u - 1j * R, self.S0, self.r, self.sigma, self.T))
+    
+    def Eu_Option_BS_LaPlace(self, exercise_type):
+        if exercise_type == "Call":
+            return integrate.quad(self.integrand_Call, 0, 50)[0] # returns V0
+        else:
+            return integrate.quad(self.integrand_Put, 0, 50)[0] # returns V0
 
 
-class HestonModel:
+class HestonModel():
     def __init__(self, t, S0, S_t, r, sigma_tilde, T, K, M, lambda_parameter, m, kappa, gamma0):
         self.t = t
         self.S0 = S0
@@ -200,3 +216,17 @@ class HestonModel:
         # simulated_std = np.std(call_prices)
         # confidence_interval = [simulated_mean_price - 1.96 * simulated_std / np.sqrt(M), simulated_mean_price + 1.96 * simulated_std / np.sqrt(M)] 
         return V0
+    
+    def integrand_Call(self, u):
+        R = 1.2
+        return np.exp(-self.r * self.T) / np.pi * np.real(f_tilde(self.K, R + 1j * u) * characteristic_function_Heston(u - 1j * R, self.S0, self.r, self.sigma_tilde, self.lambda_parameter, self.kappa, self.gamma0, self.T))
+    
+    def integrand_Put(self, u):
+        R = -1.1
+        return np.exp(-self.r * self.T) / np.pi * np.real(f_tilde(self.K, R + 1j * u) * characteristic_function_Heston(u - 1j * R, self.S0, self.r, self.sigma_tilde, self.lambda_parameter, self.kappa, self.gamma0, self.T))
+    
+    def Heston_EuCall_MC_LaPlace(self, exercise_type):
+        if exercise_type == "Call":
+            return integrate.quad(self.integrand_Call, 0, 50)[0] # returns V0
+        else:
+            return integrate.quad(self.integrand_Put, 0, 50)[0] # returns V0
