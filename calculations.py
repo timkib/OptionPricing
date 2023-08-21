@@ -4,7 +4,7 @@ from scipy.stats import norm
 from numba import jit
 from numba import int32, float32    # import the types
 from numba.experimental import jitclass
-from utils import characteristic_function_BS, f_tilde, characteristic_function_Heston
+from utils import characteristic_function_BS, f_tilde, characteristic_function_Heston, solve_system
 import scipy.integrate as integrate
 
 
@@ -149,6 +149,55 @@ class BlackScholesMarket:
             S_matrix[i] = self.K * np.exp(x_i)
             v_0[i] = self.K * price_matrix[i, -1] * np.exp(-x_i/2*(q-1)-0.5*self.sigma**2*self.T*(q+0.25*(q-1)**2))
         return S_matrix, v_0
+    
+    def Am_Option_BS_PDE(self, exercise_type, theta=0.5):
+        # Compute delta_x, delta_t, x, lambda and set starting w
+        a = -0.7
+        b = 0.4
+        m = 500
+        nu_max = 2000
+
+        q = (2 * self.r) / (self.sigma * self.sigma)
+        delta_x = (b - a) / m
+        delta_t = (self.sigma * self.sigma * self.T) / (2 * nu_max)
+        lmbda = delta_t / (delta_x * delta_x)
+        x = np.ones(m + 1) * a + np.arange(0, m + 1) * delta_x
+        t = delta_t * np.arange(0, nu_max + 1)
+        if exercise_type == "Call":
+            g_nu = np.maximum(np.exp(x * 0.5 * (q + 1)) - np.exp(x * 0.5 * (q - 1)), np.zeros(m + 1))
+        else:
+            g_nu = np.maximum(np.exp(x * 0.5 * (q - 1)) - np.exp(x * 0.5 * (q + 1)), np.zeros(m + 1))
+        w = g_nu[1:m]
+
+        # Building matrix for t-loop
+        lambda_theta = lmbda * theta
+        diagonal = np.ones(m - 1) * (1 + 2 * lambda_theta)
+        secondary_diagonal = np.ones(m - 2) * (- lambda_theta)
+        b = np.zeros(m - 1)
+
+        # t-loop as on p.77.
+        for nu in range(0, nu_max):
+            if exercise_type == "Call":
+                g_nuPlusOne = np.exp((q + 1) * (q + 1) * t[nu + 1] / 4.0) * np.maximum(np.exp(x * 0.5 * (q + 1))
+                                                                                    - np.exp(x * 0.5 * (q - 1)),
+                                                                                    np.zeros(m + 1))
+            else:
+                g_nuPlusOne = np.exp((q + 1) * (q + 1) * t[nu + 1] / 4.0) * np.maximum(np.exp(x * 0.5 * (q - 1))
+                                                                                    - np.exp(x * 0.5 * (q + 1)),
+                                                                                    np.zeros(m + 1))
+            b[0] = w[0] + lmbda * (1 - theta) * (w[1] - 2 * w[0] + g_nu[0]) + lambda_theta * g_nuPlusOne[0]
+            b[1:m - 2] = w[1:m - 2] + lmbda * (1 - theta) * (w[2:m - 1] - 2 * w[1:m - 2] + w[0:m - 3])
+            b[m - 2] = w[m - 2] + lmbda * (1 - theta) * (g_nu[m] - 2 * w[m - 2] + w[m - 3]) + lambda_theta * g_nuPlusOne[m]
+
+            # Use Brennan-Schwartz algorithm to solve the linear equation system
+            w = solve_system(diagonal, secondary_diagonal, secondary_diagonal, b, g_nuPlusOne[1:m])
+
+            g_nu = g_nuPlusOne
+
+        S = self.K * np.exp(x[1:m])
+        v = self.K * w * np.exp(- 0.5 * x[1:m] * (q - 1) - 0.5 * self.sigma * self.sigma * self.T * ((q - 1) * (q - 1) / 4 + q))
+
+        return S, v
 
     def integrand_Call(self, u):
         R = 1.2
