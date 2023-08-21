@@ -18,3 +18,20 @@ def characteristic_function_Heston(u, S0, r, sigma_tilde, lambda_parameter, kapp
 def f_tilde(K, z):
     """Laplace transformed payout function."""
     return K**(1 - z) / (z*(z-1))
+
+def solve_system(alpha, beta, gamma, b, g):
+    """Brennan-Schwartz algorithm"""
+    n = len(alpha)
+    alpha_hat = np.zeros(n)
+    b_hat = np.zeros(n)
+    x = np.zeros(n)
+
+    alpha_hat[n - 1] = alpha[n - 1]
+    b_hat[n - 1] = b[n - 1]
+    for i in range(n - 2, -1, -1):
+        alpha_hat[i] = alpha[i] - beta[i] / alpha_hat[i + 1] * gamma[i]
+        b_hat[i] = b[i] - beta[i] / alpha_hat[i + 1] * b_hat[i + 1]
+    x[0] = np.maximum(b_hat[0] / alpha_hat[0], g[0])
+    for i in range(1, n):
+        x[i] = np.maximum((b_hat[i] - gamma[i - 1] * x[i - 1]) / alpha_hat[i], g[i])
+    return x
