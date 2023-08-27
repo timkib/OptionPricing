@@ -234,7 +234,7 @@ class BlackScholesMarket:
         else:
             return integrate.quad(self.integrand_Put, 0, 50)[0] # returns V0
     
-    def Am_Option_BS_LS(self, N=40000):
+    def Am_Option_BS_LS(self, exercise_type, N=20000):
         """Calculates the fair value of an american option using the Longstaff-Schwartz Algorithm."""
         # V0 = 0
         sim_pathes = sim_gbm_paths(self.S0, self.r, self.sigma, self.T, N, self.M)
@@ -243,31 +243,37 @@ class BlackScholesMarket:
         optimal_stopping_time_idx = np.ones(shape=N, dtype=np.int32) * (self.M-1)
 
         # inner value
-        h = np.maximum(sim_pathes - self.K, 0)
+        if exercise_type == "Call":
+            h = np.maximum(sim_pathes - self.K, 0)
+        else:
+            h = np.maximum(self.K - sim_pathes, 0)
+
         #terminal value
         V = h[:, -1]
         for i in range(self.M-1, 0, -1):
             t_i = i * self.T / self.M
             itm_pathes = np.where(h[:, i] > 0) # check if path is in the money
-            discounting_factor = np.exp(-self.r * (tau_n[itm_pathes] - t_i))
-            
-            # rg = np.polyfit(sim_pathes[itm_pathes, i].reshape(-1), V[itm_pathes] * discounting_factor, 5) #polynom fit
-            rg_laguerre = np.polynomial.laguerre.lagfit(sim_pathes[itm_pathes, i].reshape(-1), V[itm_pathes] * discounting_factor, 5) #laguerre fit
-            # linear regression
-            # A = np.vstack([sim_pathes[itm_pathes, i].reshape(-1), np.ones(len(sim_pathes[itm_pathes, i].reshape(-1)))]).T
-            # m, c = np.linalg.lstsq(A, V[itm_pathes] * discounting_factor, rcond=None)[0]
-            
-            # poly_values = np.polyval(rg, sim_pathes[itm_pathes, i].reshape(-1)) # predict payout next period
-            laguerre_values = np.polynomial.laguerre.lagval(sim_pathes[itm_pathes, i].reshape(-1), rg_laguerre)
-            # linear_regression_values = m * sim_pathes[itm_pathes, i].reshape(-1) + c
-            
-            # idx = np.where(h[itm_pathes, i] >= poly_values)[1]
-            idx = np.where(h[itm_pathes, i] >= laguerre_values)[1]
-            # idx = np.where(h[itm_pathes, i] >= linear_regression_values)[1]
-            
-            tau_n[idx] = t_i
-            optimal_stopping_time_idx[idx] = i - 1
-            V[idx] = h[idx, i]
+
+            if itm_pathes[0].size != 0: # check whether there are in the money pathes
+                discounting_factor = np.exp(-self.r * (tau_n[itm_pathes] - t_i))
+                
+                # rg = np.polyfit(sim_pathes[itm_pathes, i].reshape(-1), V[itm_pathes] * discounting_factor, 5) #polynom fit
+                rg_laguerre = np.polynomial.laguerre.lagfit(sim_pathes[itm_pathes, i].reshape(-1), V[itm_pathes] * discounting_factor, 4) #laguerre fit
+                # linear regression
+                # A = np.vstack([sim_pathes[itm_pathes, i].reshape(-1), np.ones(len(sim_pathes[itm_pathes, i].reshape(-1)))]).T
+                # m, c = np.linalg.lstsq(A, V[itm_pathes] * discounting_factor, rcond=None)[0]
+                
+                # poly_values = np.polyval(rg, sim_pathes[itm_pathes, i].reshape(-1)) # predict payout next period
+                laguerre_values = np.polynomial.laguerre.lagval(sim_pathes[itm_pathes, i].reshape(-1), rg_laguerre)
+                # linear_regression_values = m * sim_pathes[itm_pathes, i].reshape(-1) + c
+                
+                # idx = np.where(h[itm_pathes, i] >= poly_values)[1]
+                idx = np.where(h[itm_pathes, i] >= laguerre_values)[1]
+                # idx = np.where(h[itm_pathes, i] >= linear_regression_values)[1]
+                
+                tau_n[idx] = t_i
+                optimal_stopping_time_idx[idx] = i - 1
+                V[idx] = h[idx, i]
     
 
         x_coords = np.arange(N)
