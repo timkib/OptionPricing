@@ -5,6 +5,7 @@ from numba import jit
 from numba import int32, float32    # import the types
 from numba.experimental import jitclass
 from utils import characteristic_function_BS, f_tilde, characteristic_function_Heston, solve_system
+from simulations import sim_gbm_paths
 import scipy.integrate as integrate
 
 
@@ -36,12 +37,32 @@ class BlackScholesMarket:
     def BlackScholes_EuPut(self):
         return self.K * np.exp(-self.r * (self.T - self.t)) * norm.cdf(-self.d_2) -  self.S_t * norm.cdf(-self.d_1)
     
+    def BlackScholes_Eu_Barrier_Put(self):
+        """Calculates the fair price for down and out put option in the Black-Scholes model."""
+        # v1 = norm.cdf((np.log(self.H**2 / (self.K * self.S_t)) + (self.r+self.sigma**2 / 2) * (self.T - self.t)) / (self.sigma * np.sqrt(self.T - self.t)))
+        # v2 = (self.H / self.S_t)**(1+2*self.r/self.sigma**2) * v1
+        # v3 = np.exp(-self.r * (self.T - self.t)) * self.K * self.d_1
+        # v4 = norm.cdf((np.log(self.H**2 / (self.K * self.S_t)) + (self.r-self.sigma**2 / 2) * (self.T - self.t)) / (self.sigma * np.sqrt(self.T - self.t)))
+        # v5 = (self.H / self.S_t)**(2*self.r/self.sigma**2 - 1) * v4
+        lambda_ = (self.r + self.sigma**2 / 2) * self.sigma**2
+        y = np.log(self.H**2 / (self.S_t * self.K)) / (self.sigma * np.sqrt(self.T)) + lambda_ * self.sigma  * np.sqrt(self.T)
+        x_1 = np.log(self.S_t / self.H) / (self.sigma * np.sqrt(self.T)) + lambda_ * self.sigma  * np.sqrt(self.T)
+        y_1 = np.log(self.H / self.S_t) / (self.sigma * np.sqrt(self.T)) + lambda_ * self.sigma  * np.sqrt(self.T)
+
+        v1 = self.K * np.exp(-self.r * self.T) * norm.cdf(-self.d_2) - self.S0 * norm.cdf(-self.d_1) + self.S0 * norm.cdf(-x_1)
+        v2 = self.K * np.exp(-self.r * self.T) * norm.cdf(-x_1 + self.sigma * np.sqrt(self.T)) - self.S0 * (self.H / self.S0)**(2 * lambda_) * (norm.cdf(y) - norm.cdf(y_1))
+        v3 = self.K * np.exp(-self.r * self.T) * (self.H / self.S0)**(2 * lambda_ - 2) * (norm.cdf(y - self.sigma * np.sqrt(self.T)) - norm.cdf(y_1 - self.sigma * np.sqrt(self.T)))
+
+        return v1 - v2 + v3
+    
     def BlackScholes_Eu_Barrier_Call(self):
-        v1 = norm.cdf((np.log(self.H**2 / self.K * self.S_t) + (self.r+self.sigma**2 / 2) * (self.T - self.t)) / (self.sigma * np.sqrt(self.T - self.t)))
+        """Calculates the fair price for down and out call option in the Black-Scholes model."""""
+        v1 = norm.cdf((np.log(self.H**2 / (self.K * self.S_t)) + (self.r+self.sigma**2 / 2) * (self.T - self.t)) / (self.sigma * np.sqrt(self.T - self.t)))
         v2 = (self.H / self.S_t)**(1+2*self.r/self.sigma**2) * v1
-        v3 = np.exp(-self.r * (self.T - self.t)) * self.K * self.d_1
-        v4 = (self.H / self.S_t)**(2*self.r/self.sigma**2 - 1) * v1
-        return self.S_t * self.d_1 - v2 - v3 - v4
+        v3 = np.exp(-self.r * (self.T - self.t)) * self.K * norm.cdf((np.log(self.S_t / self.K) + (self.r - np.square(self.sigma) / 2) * (self.T - self.t)) / (self.sigma * np.sqrt(self.T - self.t)))
+        v4 = norm.cdf((np.log(self.H**2 / (self.K * self.S_t)) + (self.r-self.sigma**2 / 2) * (self.T - self.t)) / (self.sigma * np.sqrt(self.T - self.t)))
+        v5 = (self.H / self.S_t)**(2*self.r/self.sigma**2 - 1) * v4
+        return self.S_t * (norm.cdf(self.d_1) - v2 - v3 - v5) 
         
     # Monte Carlo
     # def f(self, simulated_price, K):
@@ -212,6 +233,47 @@ class BlackScholesMarket:
             return integrate.quad(self.integrand_Call, 0, 50)[0] # returns V0
         else:
             return integrate.quad(self.integrand_Put, 0, 50)[0] # returns V0
+    
+    def Am_Option_BS_LS(self, N=40000):
+        """Calculates the fair value of an american option using the Longstaff-Schwartz Algorithm."""
+        # V0 = 0
+        sim_pathes = sim_gbm_paths(self.S0, self.r, self.sigma, self.T, N, self.M)
+
+        tau_n = np.ones(shape=N) * self.T
+        optimal_stopping_time_idx = np.ones(shape=N, dtype=np.int32) * (self.M-1)
+
+        # inner value
+        h = np.maximum(sim_pathes - self.K, 0)
+        #terminal value
+        V = h[:, -1]
+        for i in range(self.M-1, 0, -1):
+            t_i = i * self.T / self.M
+            itm_pathes = np.where(h[:, i] > 0) # check if path is in the money
+            discounting_factor = np.exp(-self.r * (tau_n[itm_pathes] - t_i))
+            
+            # rg = np.polyfit(sim_pathes[itm_pathes, i].reshape(-1), V[itm_pathes] * discounting_factor, 5) #polynom fit
+            rg_laguerre = np.polynomial.laguerre.lagfit(sim_pathes[itm_pathes, i].reshape(-1), V[itm_pathes] * discounting_factor, 5) #laguerre fit
+            # linear regression
+            # A = np.vstack([sim_pathes[itm_pathes, i].reshape(-1), np.ones(len(sim_pathes[itm_pathes, i].reshape(-1)))]).T
+            # m, c = np.linalg.lstsq(A, V[itm_pathes] * discounting_factor, rcond=None)[0]
+            
+            # poly_values = np.polyval(rg, sim_pathes[itm_pathes, i].reshape(-1)) # predict payout next period
+            laguerre_values = np.polynomial.laguerre.lagval(sim_pathes[itm_pathes, i].reshape(-1), rg_laguerre)
+            # linear_regression_values = m * sim_pathes[itm_pathes, i].reshape(-1) + c
+            
+            # idx = np.where(h[itm_pathes, i] >= poly_values)[1]
+            idx = np.where(h[itm_pathes, i] >= laguerre_values)[1]
+            # idx = np.where(h[itm_pathes, i] >= linear_regression_values)[1]
+            
+            tau_n[idx] = t_i
+            optimal_stopping_time_idx[idx] = i - 1
+            V[idx] = h[idx, i]
+    
+
+        x_coords = np.arange(N)
+        discounting = np.exp(-self.r * tau_n)
+        V0 = np.maximum(h[0, 0], np.mean(discounting * h[x_coords, optimal_stopping_time_idx]))
+        return V0
 
 
 class HestonModel():
