@@ -30,10 +30,10 @@ The project was developed as part of the university course Computational Finance
 ```sh
 # default parameters
 t = 0
-# S0 = 110
-# S_t = S0
-# r = 0.05
-# sigma = 0.3
+S0 = 110
+S_t = S0
+r = 0.05
+sigma = 0.3
 T = 1
 K = 100
 M = 1000
@@ -46,7 +46,8 @@ option_pricing_BS = BlackScholesMarket(t, S0, S_t, r, sigma, T, K, M)
 
 ```
 
-2. Change to the project directory:
+2. Calculate fair price of a european call / put option:
 ```sh
-cd readme-ai
+                    V_0_call = option_pricing_BS.BlackScholes_EuCall() # call option
+                    V_0_put = option_pricing_BS.BlackScholes_EuPut() # put option
 ```
