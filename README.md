@@ -61,9 +61,8 @@ V_0_call = option_pricing_BS.Am_Option_BS_LS("Call") # call option
 V_0_put = option_pricing_BS.Am_Option_BS_LS("Put") # put option
 ```
 ---
-## 🗺 Roadmap
-
-> Analytical solution: In some cases there exists are closed-form solution e.g. in the Black-Scholes model for vanilla options or even barrier options.
+## 🗺 Overview
+Analytical solution: In some cases there exists are closed-form solution e.g. in the Black-Scholes model for vanilla options or even barrier options.
 
 
 
