@@ -60,3 +60,18 @@ V_0_put = option_pricing_BS.BlackScholes_EuPut() # put option
 V_0_call = option_pricing_BS.Am_Option_BS_LS("Call") # call option
 V_0_put = option_pricing_BS.Am_Option_BS_LS("Put") # put option
 ```
+---
+## 🗺 Roadmap
+
+> Analctical solution: `ℹ️  Task 2: Refactor Y`
+> - [ ] `ℹ️  Task 2: Refactor Y`
+> - [ ] `ℹ️ ...`
+
+
+---
+
+## 📄 License
+
+This project is licensed under the `ℹ️  INSERT-LICENSE-TYPE` License. See the [LICENSE](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/adding-a-license-to-a-repository) file for additional info.
+
+---
