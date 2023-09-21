@@ -24,7 +24,11 @@ The project was developed as part of the university course Computational Finance
 ## 🚀 Getting Started
 
 
-###  Installation
+###  Import module
+0. Import the OptionPricing module:
+```sh
+from calculations import BlackScholesMarket, HestonModel
+```
 
 1. Create an instance:
 ```sh
@@ -48,6 +52,11 @@ option_pricing_BS = BlackScholesMarket(t, S0, S_t, r, sigma, T, K, M)
 
 2. Calculate fair price of a european call / put option:
 ```sh
-                    V_0_call = option_pricing_BS.BlackScholes_EuCall() # call option
-                    V_0_put = option_pricing_BS.BlackScholes_EuPut() # put option
+V_0_call = option_pricing_BS.BlackScholes_EuCall() # call option
+V_0_put = option_pricing_BS.BlackScholes_EuPut() # put option
+```
+3. Calculate the fair price of an american option:
+```sh
+V_0_call = option_pricing_BS.Am_Option_BS_LS("Call") # call option
+V_0_put = option_pricing_BS.Am_Option_BS_LS("Put") # put option
 ```
