@@ -63,15 +63,14 @@ V_0_put = option_pricing_BS.Am_Option_BS_LS("Put") # put option
 ---
 ## 🗺 Roadmap
 
-> Analctical solution: `ℹ️  Task 2: Refactor Y`
-> - [ ] `ℹ️  Task 2: Refactor Y`
-> - [ ] `ℹ️ ...`
+> Analytical solution: In some cases there exists are closed-form solution e.g. in the Black-Scholes model for vanilla options or even barrier options.
+
 
 
 ---
 
 ## 📄 License
 
-This project is licensed under the `ℹ️  INSERT-LICENSE-TYPE` License. See the [LICENSE](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/adding-a-license-to-a-repository) file for additional info.
+This project is licensed under the `ℹ️  GNU General Public License v2.0` License. See the [LICENSE](https://github.com/timkib/OptionPricing/blob/main/LICENSE) file for additional info.
 
 ---
