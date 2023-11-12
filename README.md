@@ -9,7 +9,7 @@ The project was developed as part of the university course Computational Finance
 
 ---
 
-## ⚙️ Features
+ ⚙️ Features
 
 | Feature                | Description                                                                                                                                                    |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
