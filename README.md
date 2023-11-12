@@ -3,7 +3,7 @@
 <p align="center">
 <img src="https://img.shields.io/badge/Python-3776AB.svg?style&logo=Python&logoColor=white" alt="Python" />
 </p>
-## 📍 Overview
+ 📍 Overview
 
 The project was developed as part of the university course Computational Finance. It enables the fair pricing of financial derivatives, precisely options. 
 
